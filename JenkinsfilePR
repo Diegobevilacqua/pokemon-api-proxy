@@ -1,0 +1,237 @@
+pipeline {
+    agent any
+    
+    tools {
+        jdk '17'
+        gradle 'gradle'
+    }
+    
+    environment {
+        GRADLE_OPTS = '-Dorg.gradle.daemon=false'
+        JAVA_OPTS = '-Xmx1024m'
+        SPRING_PROFILES_ACTIVE = 'test'
+    }
+    
+    stages {
+        stage('Checkout') {
+            steps {
+                echo 'Checking out PR source code...'
+                checkout scm
+            }
+        }
+        
+        stage('Build') {
+            steps {
+                echo 'Building the project...'
+                sh './gradlew clean build -x test'
+            }
+        }
+        
+        stage('Unit Tests') {
+            steps {
+                echo 'Running unit tests...'
+                sh './gradlew test'
+            }
+            post {
+                always {
+                    // Publish test results
+                    publishTestResults testResultsPattern: 'build/test-results/test/*.xml'
+                    junit 'build/test-results/test/*.xml'
+                }
+            }
+        }
+        
+        stage('Integration Tests') {
+            steps {
+                echo 'Running integration tests...'
+                sh './gradlew test --tests "*IntegrationTest"'
+            }
+            post {
+                always {
+                    publishTestResults testResultsPattern: 'build/test-results/test/*.xml'
+                }
+            }
+        }
+        
+        stage('Code Coverage') {
+            steps {
+                echo 'Generating code coverage report...'
+                sh './gradlew jacocoTestReport'
+            }
+            post {
+                always {
+                    // Publish code coverage report
+                    publishHTML([
+                        allowMissing: false,
+                        alwaysLinkToLastBuild: true,
+                        keepAll: true,
+                        reportDir: 'build/reports/jacoco/test/html',
+                        reportFiles: 'index.html',
+                        reportName: 'Code Coverage Report'
+                    ])
+                }
+            }
+        }
+        
+        stage('Code Quality') {
+            steps {
+                echo 'Running code quality checks...'
+                sh './gradlew checkstyleMain checkstyleTest'
+            }
+            post {
+                always {
+                    // Publish checkstyle results
+                    publishHTML([
+                        allowMissing: false,
+                        alwaysLinkToLastBuild: true,
+                        keepAll: true,
+                        reportDir: 'build/reports/checkstyle',
+                        reportFiles: 'main.html',
+                        reportName: 'Checkstyle Report'
+                    ])
+                }
+            }
+        }
+        
+        stage('Security Scan') {
+            steps {
+                echo 'Running security scan...'
+                sh './gradlew dependencyCheckAnalyze'
+            }
+            post {
+                always {
+                    // Publish security scan results
+                    publishHTML([
+                        allowMissing: false,
+                        alwaysLinkToLastBuild: true,
+                        keepAll: true,
+                        reportDir: 'build/reports/dependency-check-report.html',
+                        reportFiles: 'dependency-check-report.html',
+                        reportName: 'Security Scan Report'
+                    ])
+                }
+            }
+        }
+        
+        stage('Package') {
+            steps {
+                echo 'Packaging the application...'
+                sh './gradlew bootJar'
+            }
+        }
+    }
+    
+    post {
+        always {
+            echo 'PR Pipeline completed!'
+            
+            // Archive build artifacts
+            archiveArtifacts artifacts: 'build/libs/*.jar', fingerprint: true
+            
+            // Clean up workspace
+            cleanWs()
+        }
+        
+        success {
+            echo 'PR tests passed! ✅'
+            
+            // Update PR status
+            script {
+                if (env.CHANGE_ID) {
+                    echo "PR #${env.CHANGE_ID} tests passed successfully"
+                    
+                    // Set GitHub status
+                    step([
+                        $class: 'GitHubCommitStatusSetter',
+                        reposSource: [
+                            $class: 'ManuallyEnteredRepositorySource',
+                            url: 'https://github.com/Diegobevilacqua/pokemon-api-proxy'
+                        ],
+                        contextSource: [
+                            $class: 'ManuallyEnteredCommitContextSource',
+                            context: 'jenkins/pr-tests'
+                        ],
+                        statusResultSource: [
+                            $class: 'ConditionalStatusResultSource',
+                            results: [
+                                [
+                                    $class: 'AnyBuildResult',
+                                    message: 'All tests passed!',
+                                    state: 'SUCCESS'
+                                ]
+                            ]
+                        ]
+                    ])
+                }
+            }
+        }
+        
+        failure {
+            echo 'PR tests failed! ❌'
+            
+            // Update PR status
+            script {
+                if (env.CHANGE_ID) {
+                    echo "PR #${env.CHANGE_ID} tests failed"
+                    
+                    // Set GitHub status
+                    step([
+                        $class: 'GitHubCommitStatusSetter',
+                        reposSource: [
+                            $class: 'ManuallyEnteredRepositorySource',
+                            url: 'https://github.com/Diegobevilacqua/pokemon-api-proxy'
+                        ],
+                        contextSource: [
+                            $class: 'ManuallyEnteredCommitContextSource',
+                            context: 'jenkins/pr-tests'
+                        ],
+                        statusResultSource: [
+                            $class: 'ConditionalStatusResultSource',
+                            results: [
+                                [
+                                    $class: 'AnyBuildResult',
+                                    message: 'Tests failed. Please check the logs.',
+                                    state: 'FAILURE'
+                                ]
+                            ]
+                        ]
+                    ])
+                }
+            }
+        }
+        
+        unstable {
+            echo 'PR tests unstable! ⚠️'
+            
+            // Update PR status
+            script {
+                if (env.CHANGE_ID) {
+                    echo "PR #${env.CHANGE_ID} tests unstable"
+                    
+                    // Set GitHub status
+                    step([
+                        $class: 'GitHubCommitStatusSetter',
+                        reposSource: [
+                            $class: 'ManuallyEnteredRepositorySource',
+                            url: 'https://github.com/Diegobevilacqua/pokemon-api-proxy'
+                        ],
+                        contextSource: [
+                            $class: 'ManuallyEnteredCommitContextSource',
+                            context: 'jenkins/pr-tests'
+                        ],
+                        statusResultSource: [
+                            $class: 'ConditionalStatusResultSource',
+                            results: [
+                                [
+                                    $class: 'AnyBuildResult',
+                                    message: 'Tests unstable. Please review.',
+                                    state: 'ERROR'
+                                ]
+                            ]
+                        ]
+                    ])
+                }
+            }
+        }
+    }
+}

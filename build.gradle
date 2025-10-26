@@ -2,6 +2,9 @@ plugins {
 	id 'java'
 	id 'org.springframework.boot' version "${springBootVersion}"
 	id 'io.spring.dependency-management' version '1.1.6'
+	id 'jacoco'
+	id 'checkstyle'
+	id 'org.owasp.dependencycheck' version '8.4.0'
 }
 
 ext {
@@ -30,4 +33,50 @@ dependencies {
 
 tasks.named('test') {
 	useJUnitPlatform()
+	finalizedBy jacocoTestReport
+}
+
+// JaCoCo configuration
+jacoco {
+	toolVersion = "0.8.8"
+}
+
+jacocoTestReport {
+	dependsOn test
+	reports {
+		xml.required = true
+		html.required = true
+		csv.required = false
+	}
+}
+
+jacocoTestCoverageVerification {
+	violationRules {
+		rule {
+			limit {
+				minimum = 0.80
+			}
+		}
+	}
+}
+
+// Checkstyle configuration
+checkstyle {
+	toolVersion = '10.12.4'
+	configFile = file('config/checkstyle/checkstyle.xml')
+}
+
+// OWASP Dependency Check configuration
+dependencyCheck {
+	format = 'HTML'
+	suppressionFile = 'config/dependency-check/suppressions.xml'
+}
+
+// Integration test task
+task integrationTest(type: Test) {
+	useJUnitPlatform()
+	testClassesDirs = sourceSets.test.output.classesDirs
+	classpath = sourceSets.test.runtimeClasspath
+	include '**/*IntegrationTest.class'
+	finalizedBy jacocoTestReport
 }

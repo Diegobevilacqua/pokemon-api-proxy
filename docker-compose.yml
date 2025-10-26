@@ -1,0 +1,38 @@
+version: '3.8'
+
+services:
+  pokemon-api-proxy:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+      - POKEMON_API_BASE_URL=https://pokeapi.co/api/v2
+      - POKEMON_API_TIMEOUT=5000
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    restart: unless-stopped
+    networks:
+      - pokemon-network
+
+  # Optional: Add a reverse proxy for production
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - pokemon-api-proxy
+    networks:
+      - pokemon-network
+    profiles:
+      - production
+
+networks:
+  pokemon-network:
+    driver: bridge

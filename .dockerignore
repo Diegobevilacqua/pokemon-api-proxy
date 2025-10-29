@@ -1,0 +1,44 @@
+# Build outputs
+build/
+.gradle/
+
+# Git
+.git/
+.gitignore
+
+# IDE files
+.idea/
+.vscode/
+*.iml
+*.ipr
+*.iws
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Documentation
+README.md
+*.md
+
+# CI/CD
+jenkins/
+.github/
+
+# Test reports
+*.html
+*.xml
+
+# Docker files (except Dockerfile and docker-compose)
+docker-compose.*
+Dockerfile.*
+nginx.conf
+
+# Logs
+*.log
+
+# Temporary files
+*.tmp
+*.bak
+*.swp
+

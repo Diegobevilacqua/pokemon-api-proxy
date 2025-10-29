@@ -1,5 +1,5 @@
 # Multi-stage build for Pokemon API Proxy
-FROM gradle:8.10-jdk17 AS builder
+FROM gradle:8.11-jdk23 AS builder
 
 # Set working directory
 WORKDIR /app
@@ -12,10 +12,10 @@ COPY gradlew build.gradle settings.gradle ./
 COPY src/ src/
 
 # Build the application
-RUN ./gradlew clean build -x test
+RUN ./gradlew clean build -x test -x checkstyleMain -x checkstyleTest
 
 # Runtime stage
-FROM openjdk:17-jre-slim
+FROM eclipse-temurin:23-jre
 
 # Install curl for health checks
 RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*

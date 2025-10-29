@@ -16,8 +16,8 @@ version = '0.0.1-SNAPSHOT'
 description = 'Proxy for the Pokemon API'
 
 java {
-	sourceCompatibility = JavaVersion.VERSION_17
-	targetCompatibility = JavaVersion.VERSION_17
+	sourceCompatibility = JavaVersion.VERSION_23
+	targetCompatibility = JavaVersion.VERSION_23
 }
 
 repositories {
@@ -42,7 +42,7 @@ tasks.named('test') {
 
 // JaCoCo configuration
 jacoco {
-	toolVersion = "0.8.8"
+	toolVersion = "0.8.12"
 }
 
 jacocoTestReport {
